@@ -1,0 +1,102 @@
+name: Build MicroPython Firmware
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: vovastelmashchuk/cv
+  HOST: ${{ vars.HOST }}
+  SSH_KEY: ${{ secrets.ROOT_SSH_PRIVATE_KEY }}
+  COMMIT_SHA: ${{ github.sha }}
+  USERNAME: ${{ vars.USERNAME }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check dev flags are off
+        run: |
+          FAIL=0
+          for flag in DEBUG QUICK_START MUTE_BUZZER; do
+            if grep -qP "^${flag}\s*=\s*True" firmware/src/config.py; then
+              echo "ERROR: $flag is set to True in firmware/src/config.py — must be False for production builds"
+              FAIL=1
+            fi
+          done
+          exit $FAIL
+
+      - name: Install System Dependencies
+        run: sudo apt-get update && sudo apt-get install -y git wget flex bison gperf python3-pip python3-venv cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
+
+      - name: Build Firmware
+        working-directory: firmware
+        run: bash build.sh
+
+      - name: Upload Firmware Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prismo-firmware.bin
+          path: firmware/dist/firmware.bin
+
+      - name: Prepare Web App
+        run: cp firmware/dist/firmware.bin web/static/firmware/firmware.bin
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: web
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          build-args: |
+            GIT_COMMIT_SHA=${{ github.sha }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-push-image
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create .env file for Docker Stack
+        run: |
+          echo "IMAGE_NAME='${{ env.IMAGE_NAME }}'" >> .env
+          echo "COMMIT_SHA='${{ env.COMMIT_SHA }}'" >> .env
+
+      - name: Setup docker remote context
+        uses: cssnr/stack-deploy-action@v1
+        with:
+          name: prismo-web-flasher
+          file: web/docker-stack.yml
+          host: ${{ env.HOST}}
+          port: 22
+          user: ${{ env.USERNAME }}
+          ssh_key: ${{ env.SSH_KEY }}
+          env_file: .env
+          detach: false
+          prune: true
+          resolve_image: 'always'
+          summary: true
