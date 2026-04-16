@@ -67,7 +67,7 @@
 			{#each socialLinks as link (link.name)}
 				<BentoCard
 					href={link.url}
-					class="group flex items-center justify-center md:col-span-2 lg:col-span-2"
+					class="group flex items-center justify-start md:col-span-2 lg:col-span-2"
 				>
 					<div class="flex items-center gap-4">
 						<div

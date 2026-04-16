@@ -7,6 +7,12 @@ export const personalInfo = {
 
 export const socialLinks = [
 	{
+		name: 'YouTube',
+		url: 'https://www.youtube.com/channel/UC4yIia8VAd1qQWDVobBxH1A',
+		icon: 'mdi:youtube',
+		username: 'Vova Stelmashchuk'
+	},
+	{
 		name: 'GitHub',
 		url: 'https://github.com/vovaStelmashchuk',
 		icon: 'mdi:github',
@@ -23,12 +29,6 @@ export const socialLinks = [
 		url: 'https://medium.com/@vovochkastelmashchuk',
 		icon: 'mdi:medium',
 		username: '@vovochkastelmashchuk'
-	},
-	{
-		name: 'YouTube',
-		url: 'https://www.youtube.com/channel/UC4yIia8VAd1qQWDVobBxH1A',
-		icon: 'mdi:youtube',
-		username: 'Vova Stelmashchuk'
 	},
 	{
 		name: 'LinkedIn',
